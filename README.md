@@ -4,10 +4,10 @@ MLOps Proof of Concept using the Santander Transaction Competition as basis.
 
 ref: https://www.kaggle.com/c/santander-customer-transaction-prediction/overview
 
-# Data Analysis
+# Data EDA and Selection
 
-The Data Analysis is made in the data_eda.ipynb notebook
+The Data EDA is made in the data_eda.ipynb notebook. The Model Selection is made on the model_selection.ipynb notebook. These notebooks are inside the notebooks folder.
 
-# Model Training
+# Model Api
 
-The Model Training is made in the model_training.ipynb notebook
+Model API is the application responsible for providing the model endpoints. It allows the user to update the model and to make predictions.
