@@ -1,0 +1,2 @@
+default_model_name: default_model.pickle.dat
+default_model_type: xgboost
