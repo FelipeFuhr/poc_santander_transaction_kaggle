@@ -5,27 +5,30 @@ Utility functions for usage on the application.
 from flask import jsonify, make_response
 from sklearn.metrics import recall_score, precision_score, accuracy_score, f1_score, roc_auc_score
 import pandas as pd
+from pathlib import Path
 
-def customResponseHttp(message: str, httpResponse: int):
+def custom_response_http(message: str, httpStatus: int):
     ''' 
     Makes a custom http message with json as payload
     
     INPUT:
     - message: str, 
-    - httpResponse: int
+    - httpStatus: int
     OUTPUT:
     - output: json message
     '''
-    out = { "Message" : message,
-            "Response" : httpResponse }
+    out = { "Message" : message }
     return make_response(
         jsonify(out),
-        httpResponse)
+        httpStatus)
 
 def gini_score(y_true, y_pred):
     return 2*roc_auc_score(y_true,y_pred)-1
 
 def get_scores(y_true, y_pred, scores=["accuracy", "gini", "f1", "precision", "recall"]):
+    """
+    Calculates accuracy, gini, g1, precision and/or recall scores.
+    """
     resulting_scores = {}
     scores = set(scores)
     if "accuracy" in scores:
@@ -41,10 +44,16 @@ def get_scores(y_true, y_pred, scores=["accuracy", "gini", "f1", "precision", "r
     return resulting_scores
 
 def print_scores(scores):
+    """
+    Prints scores calculated on get_scores function
+    """
     for key, val in scores.items():
         print(key + " score: " + str(val))
 
 def get_holdout_data():
+    """
+    Reads holdout data from .csv
+    """
     data = pd.read_csv('./data/holdout.csv')
     X, y = split_Xy(data)
     return X, y
@@ -55,3 +64,12 @@ def split_Xy(data):
     y = data['target']
     
     return X, y
+
+def file_exists(filepath):
+    if Path(filepath).is_file():
+        return True
+    else:
+        return False
+
+def validate_data(data):
+    return True

@@ -39,7 +39,6 @@ func main() {
 	m.HandleFunc("/predict-batch", lt.PredictBatch)
 	m.HandleFunc("/upload-model", lt.UploadModel)
 	m.HandleFunc("/train-model", lt.TrainModel)
-	m.HandleFunc("/results", lt.Results)
 
 	// Listen and Serve with Transport Layer Security
 	log.Fatal(s.ListenAndServe())

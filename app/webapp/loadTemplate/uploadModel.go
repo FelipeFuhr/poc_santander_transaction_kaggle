@@ -1,11 +1,22 @@
 package loadTemplate
 
 import (
+	"bytes"
+	"encoding/base64"
 	"fmt"
+	"io"
 	"net/http"
 )
 
 func UploadModel(w http.ResponseWriter, r *http.Request) {
+	var err error
+
+	var status int  // status coded from API
+	var rmsg string // message returned from API
+
+	var smsg string // success message
+	var emsg string // error message
+
 	activeItem := "Upload Model"
 	data := struct {
 		Hd      HeaderData
@@ -23,21 +34,49 @@ func UploadModel(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
 		tpl.ExecuteTemplate(w, "uploadModel.gohtml", data)
 	} else {
-		f, _, err := r.FormFile("form")
-		if err != nil {
-			msg := fmt.Sprintf("Error: File not found.")
-			data.Message = msg
+		f, _, err1 := r.FormFile("form")
+		if err1 != nil {
+			data.Message = fmt.Sprintf("Error: File not found.")
 			tpl.ExecuteTemplate(w, "uploadModel.gohtml", data)
 			return
 		}
 		defer f.Close()
 
+		// Encodes data as base64
+		f.Seek(0, 0)
+		buf := bytes.NewBuffer(nil)
+		if _, err = io.Copy(buf, f); err != nil {
+			data.Message = fmt.Sprintf("Error: File not valid.")
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			tpl.ExecuteTemplate(w, "uploadModel.gohtml", data)
+			return
+		}
+		// Encodes model to Base64
+		datab64 := base64.StdEncoding.EncodeToString(buf.Bytes())
 		mn_form, ok := r.Form["model_name"]
 		model_name := mn_form[0]
 		if !ok {
-			data.Message = fmt.Sprintf("Sent Upload Request with default model.")
+			model_name = "default_model"
+			smsg = fmt.Sprintf("Sent [Upload Model Request] with default model. ")
+			emsg = fmt.Sprintf("Error processing [Upload Model Request] with default model. ")
 		} else {
-			data.Message = fmt.Sprintf("Sent Upload Request with %s model.", model_name)
+			smsg = fmt.Sprintf("Sent [Upload Model Request] with [%s] model. ", model_name)
+			emsg = fmt.Sprintf("Error processing [Upload Model Request] with default model. ")
+		}
+		// Sends base64 encoded model
+		if rmsg, status, err = sendUploadModelRequest(model_name, datab64, w, r); err == nil {
+			if status == 200 {
+				smsg = smsg + fmt.Sprintf("Return from API: '%s'.", rmsg)
+				data.Message = smsg
+				linfo.Println(smsg)
+			} else {
+				emsg = emsg + fmt.Sprintf("Return from API: '%s'.", rmsg)
+				data.Message = emsg
+				lerror.Println(smsg)
+			}
+		} else {
+			data.Message = emsg
+			lerror.Println(emsg)
 		}
 		tpl.ExecuteTemplate(w, "uploadModel.gohtml", data)
 	}

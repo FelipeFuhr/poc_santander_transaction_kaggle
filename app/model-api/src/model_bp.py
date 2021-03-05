@@ -7,10 +7,10 @@ retraining of a existing model and upload of a new model.
 from flask import Blueprint, request
 import utils
 import base64
-import pickle
+import joblib
 import pandas as pd
 import numpy as np
-from pathlib import Path
+from os import remove
 
 from logger import get_logger
 logger = get_logger(__name__)
@@ -29,171 +29,155 @@ def upload_model():
 
     INPUT:
     - input: { model_name : string,
-               model_type: string (example: xgboost, lightgbm, etc),
                model: base64_string }
     OUTPUT:
     - output: message
               status (successful or not)
     '''
+    input_asDict = request.get_json()
+
+    logger.info("Received [Upload Model Request] (0/3) ... ")
+
+    # Sees if model name is available
+    try: 
+        # Check if Model Name and Model Type are present
+        if ("model_name" in input_asDict.keys()):
+            model_name = input_asDict["model_name"]
+            filepath = "./models/"+model_name+".joblib.dat"
+            if utils.file_exists(filepath):
+                message = "Model with given name already exists."
+                logger.error(message)
+                return utils.custom_response_http(message, 400)
+        else:
+            model_name = "default_model"
+    except: 
+        message = "Internal Server Error"
+        logger.info(message)
+        return utils.custom_response_http(message, 500)
+    logger.info("[Upload Model Request] Model Name Set: [" + model_name + "] (1/3) ... ")
+
+    # Decodes Model
+    try:
+        if ("model" in input_asDict.keys()):
+            model_as64 = input_asDict["model"]
+            logger.info(str(model_as64)[:10])
+            decoded_model = base64.b64decode(model_as64)
+            with open(filepath, 'wb') as fh:
+                fh.write(decoded_model)
+                with open(filepath, 'rb') as model_file:
+                    # Load model
+                    model = joblib.load(model_file)
+                    
+        else:
+            message = "Model does not exist in request."
+            logger.error(message)
+            return utils.custom_response_http(message, 400)
+    except: 
+        message = "Internal Server Error"
+        logger.error(message)
+        return utils.custom_response_http(message, 500)
+    logger.info("[Upload Model Request] Model Decoded (2/3) ... ")
+
+    # Validate Model
+    try:
+        # Validate with Holdout Set
+        data = pd.read_csv('./data/holdout.csv')
+        x_cols = [x for x in data.columns if (x not in ['ID_code', 'target'])]
+
+        X = data[x_cols]
+        y = data['target']
+
+        y_pred = model.predict(X)
+        y_true = np.array(y)
+
+        score = utils.get_scores(y_true, y_pred)["f1"]
+    except:
+        message = "Could not validate model ."
+        # remove(filepath)
+        logger.error(message)
+        return utils.custom_response_http(message, 500)
+    logger.info("[Upload Model Request] Model Validated (3/3) .")
+    
+    message = "Model Uploaded! Score: " + str(score)
+    logger.info(str(utils.custom_response_http(message, 200)))
+    return utils.custom_response_http(message, 200)
+
+ 
+@model_bp.route('/train_model', methods=['POST'])
+def train_model():
+    ''' 
+    Receives a JSON with a batch of instances as payload. If a with the given name and type does
+    not exist, a new model is created with the given model type and model name.
+    If a model with the given name and type already exists:
+        - Trains the model (while keeping the previous weights) if retrain is set to 0;
+        - Retrains the model from 0 if retrain is set to 1 (or is inexistent).
+    
+    INPUT:
+    - input: {  model_name : string,
+                data: encoded b64string,
+                retrain: 0 or 1 }
+
+    OUTPUT:
+    - output: message
+            status (successful or not)
+    '''
 
     input_asDict = request.get_json()
-    req, msg = isModelInfoPresent(input_asDict)
 
-    # Check if Model Name and Model Type are present
+    logger.info("Received [Train Model Request] (0/) ... ")
+
     if ("model_name" in input_asDict.keys()):
         model_name = input_asDict["model_name"]
     else:
         message = "Model Name is required."
         logger.error(message)
-        return utils.customResponseHttp(message, 400)
-    if ("model_type" in input_asDict.keys()):
-        model_type = input_asDict["model_type"]
-    else:
-        message = "Model Type is required."
-        logger.error(message)
-        return utils.customResponseHttp(message, 400)
-    
-    # Loads Model to be Used
+        return utils.custom_response_http(message, 400)
+    logger.info("[Train Model Request] Model Name Set: [" + model_name + "] (1/) ... ")
+
+    # Decodes Training Data
     try:
-        model_as64 = input_asDict["model"]
-        decoded_message = base64.b64decode(model_as64)
-        if model_type == "xgboost":
-            filepath = "./models/xgboost/" + model_name + ".pickle.dat"
-            if model_already_exists(filepath):
-                message = "Model with that name already exists."
-                logger.error(message)
-                return utils.customResponseHttp(message, 400)
-            else: 
-                score = save_uploaded_model(decoded_message, filepath)
-    except (FileNotFoundError, pickle.UnpicklingError):
-        message = "Error Loading Model"
-        logger.error(message)
-        return utils.customResponseHttp(message, 500)
+        if ("data" in input_asDict.keys()):
+            data_as64 = input_asDict["data"]
+            dataraw = base64.b64decode(data_as64)
+            data_filepath = "./tmp/tmpcsv.csv"
+            with open(data_filepath, 'wb') as fh:
+                fh.write(dataraw)
+            data = pd.read_csv(data_filepath)
+            logger.info(string(data.head()))
+            X, y = utils.split_Xy(data)
+        else:
+            message = "Data does not exist in request."
+            logger.error(message)
+            return utils.custom_response_http(message, 400)
     except: 
-        message = "Internal Error"
+        message = "Internal Server Error"
         logger.error(message)
-        return utils.customResponseHttp(message, 500)
-  
-    return utils.customResponseHttp("Model Upload was successful! " + 
-                                    "Model score on holdout set: " 
-                                    + str(score), 200)
+        return utils.custom_response_http(message, 500)
+    logger.info("[Train Model Request] Decoded Dataset. (2/) ... ")
 
-# @model_bp.route('/train_model', methods=['POST'])
-# def train_model():
-#     ''' 
-#     Receives a JSON with a batch of instances as payload. If a with the given name and type does
-#     not exist, a new model is created with the given model type and model name.
-#     If a model with the given name and type already exists:
-#         - Trains the model (while keeping the previous weights) if retrain is set to 0;
-#         - Retrains the model from 0 if retrain is set to 1 (or is inexistent).
-    
-#     INPUT:
-#     - input: {  model_name : string,
-#                 model_type: string (example: xgboost, lightgbm, etc),
-#                 retrain: 0 or 1
-#                 data_location: base64_string
-#     OUTPUT:
-#     - output: message
-#               status (successful or not)
-#     '''
+    # Loads/Creates Model
+    try:
+        filepath = "./models/" + model_name + ".joblib.dat"
+        if model_already_exists(filepath):
+            if input_asDict["retrain"] == 1:
+                with open(filepath, 'rb') as model_file:
+                    # Load model
+                    model = joblib.load(model_file)
+                    model.partial_fit(X, y)
+            else:
+                message = "Cannot overwrite model. Set retrain = 1 or choose another name."
+                logger.error(message)
+                return utils.custom_response_http(message, 400)
+        else:
+            model = xgb.XGBClassifier(n_jobs=-1,
+            objective='binary:logistic',
+            random_state=42,
+            verbosity=0
+            )
+            model.fit(X, y)
+    except: 
+        message = "Internal Server Error"
+        logger.error(message)
+        return utils.custom_response_http(message, 500)
 
-#     input_asDict = request.get_json()
-
-#     if ("model_name" in input_asDict.keys()):
-#         model_name = input_asDict["model_name"]
-#     else:
-#         message = "Model Name is required."
-#         logger.error(message)
-#         return utils.customResponseHttp(message, 400)
-#     if ("model_type" in input_asDict.keys()):
-#         model_type = input_asDict["model_type"]
-#     else:
-#         message = "Model Type is required."
-#         logger.error(message)
-#         return utils.customResponseHttp(message, 400)
-    
-#     # Loads Data and Trains Model
-#     try:
-#         data_raw = input_asDict["data"]
-#         data = pd.DataFrame(d=data_raw)
-#         if model_type == "xgboost":
-#             filepath = "./models/xgboost/" + model_name + ".pickle.dat"
-#             if model_already_exists(filepath):
-#                 if input_asDict["retrain"] == 0:
-#                     model, score = train_model(data)
-#                     save_model(model, filepath)
-#                     logger.info("Successfully Retrained the Model.")
-#                     return utils.customResponseHttp(message, 200)
-#                 else:
-#                     model = load_model(filepath)
-#                     model, score = retrain_model(model, data)
-#                     save_model(model, filepath)
-#                 return utils.customResponseHttp(message, 200)
-#             else: 
-#                 model, score = train_model(data)
-#                 save_model(model, filepath)
-#     except (FileNotFoundError, pickle.UnpicklingError):
-#         message = "Error Loading Model"
-#         logger.error(message)
-#         return utils.customResponseHttp(message, 500)
-#     except: 
-#         message = "Internal Error"
-#         logger.error(message)
-#         return utils.customResponseHttp(message, 500)
-  
-#     return utils.customResponseHttp("Model Training was successful! " + 
-#                                     "Model score on holdout set: " 
-#                                     + str(score), 200)
-
-def model_already_exists(filepath):
-    if Path(filepath).is_file():
-        return True
-    else:
-        return False
-
-def save_uploaded_model(modelb, filepath):
-    with open(filepath, 'wb') as model_file:
-        model_file.write(modelb)
-    with open(filepath, 'rb') as model_file:
-        # Load model
-        model = pickle.load(model_file)
-        # Run model on holdout dataset
-        score = evaluate_on_holdout(model)
-    return score
-
-def save_model(model, filepath):
-    pickle.dump(model, open(filepath, "wb"))
-
-def load_model(filepath):
-    with open(filepath, 'rb') as model_file:
-        model = pickle.load(model_file)
-        return model
-    return
-
-def train_model(data):
-    # Splits X and y
-    X, y = utils.split_Xy()
-    # Trains Model
-    model.fit(X, y)
-    # Evaluate on holdout
-    scores = utils.evaluate_on_holdout(model)
-    return y_pred
-                    
-def retrain_model(model, data):
-    # Splits X and y
-    X, y = utils.split_Xy(data)
-    # Retrains Model
-    model.partial_fit(X, y)
-    # Evaluate on holdout
-    score = evaluate_on_holdout(model)
-    return model, score
-
-def evaluate_on_holdout(model, metric="f1"):
-    # Splits X and y
-    X, y = utils.get_holdout_data()
-    # Makes Prediction
-    y_pred = model.predict(X)
-    # Evaluate Multiple Metrics
-    scores = utils.get_scores(y, y_pred)
-    # Select desired Metric
-    return scores[metric]
+    return utils.custom_response_http("Model Training was successful! ", 200)

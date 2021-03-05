@@ -33,6 +33,8 @@ main h3 {
 main ul li {
     margin-bottom: 0.2em;
     margin-top: 0.2em;
+    margin-left: 0.4em;
+    margin-right: 0.4em;
 }
 
 main .messageBox {

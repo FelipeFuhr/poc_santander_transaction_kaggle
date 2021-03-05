@@ -1,11 +1,23 @@
 package loadTemplate
 
 import (
+	"bytes"
+	"encoding/base64"
 	"fmt"
+	"io"
 	"net/http"
 )
 
 func TrainModel(w http.ResponseWriter, r *http.Request) {
+	var retrain int
+	var err error
+
+	var status int  // status coded from API
+	var rmsg string // message returned from API
+
+	var smsg string // success message
+	var emsg string // error message
+
 	activeItem := "Train Model"
 	data := struct {
 		Hd      HeaderData
@@ -23,26 +35,56 @@ func TrainModel(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
 		tpl.ExecuteTemplate(w, "trainModel.gohtml", data)
 	} else {
-		f, _, err := r.FormFile("form")
-		if err != nil {
-			msg := fmt.Sprintf("Error: File not found.")
-			data.Message = msg
+		f, _, err1 := r.FormFile("form")
+		if err1 != nil {
+			data.Message = fmt.Sprintf("Error: File not found.")
 			tpl.ExecuteTemplate(w, "trainModel.gohtml", data)
 			return
 		}
 		defer f.Close()
 
-		mn_form, mn_ok := r.Form["model_name"]
+		// Encodes data as base64
+		f.Seek(0, 0)
+		buf := bytes.NewBuffer(nil)
+		if _, err = io.Copy(buf, f); err != nil {
+			data.Message = fmt.Sprintf("Error: File not valid.")
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			tpl.ExecuteTemplate(w, "trainModel.gohtml", data)
+			return
+		}
+		// Encodes model to Base64
+		datab64 := base64.StdEncoding.EncodeToString(buf.Bytes())
+		linfo.Println(string(datab64)[0:9])
+		mn_form, ok := r.Form["model_name"]
 		model_name := mn_form[0]
-		if !mn_ok {
-			data.Message = fmt.Sprintf("Error: Model Name required.")
+		if !ok {
+			model_name = "default_model"
+			smsg = fmt.Sprintf("Sent [Train Model Request] with default model. ")
+			emsg = fmt.Sprintf("Error processing [Train Model Request] with default model. ")
 		} else {
-			_, ok := r.Form["retrain_model"]
-			if ok {
-				data.Message = fmt.Sprintf("Sent Retrain Model Request with %s model.", model_name)
+			smsg = fmt.Sprintf("Sent [Train Model Request] with [%s] model. ", model_name)
+			emsg = fmt.Sprintf("Error processing [Train Model Request] with default model. ")
+		}
+		// Sends base64 encoded model
+		_, ok = r.Form["retrain_model"]
+		if ok {
+			retrain = 1
+		} else {
+			retrain = 0
+		}
+		if rmsg, status, err = sendTrainModelRequest(model_name, datab64, retrain, w, r); err == nil {
+			if status == 200 {
+				smsg = smsg + fmt.Sprintf("Return from API: '%s'.", rmsg)
+				data.Message = smsg
+				linfo.Println(smsg)
 			} else {
-				data.Message = fmt.Sprintf("Sent Train Model Request with %s model.", model_name)
+				emsg = emsg + fmt.Sprintf("Return from API: '%s'.", rmsg)
+				data.Message = emsg
+				lerror.Println(smsg)
 			}
+		} else {
+			data.Message = emsg
+			lerror.Println(emsg)
 		}
 		tpl.ExecuteTemplate(w, "trainModel.gohtml", data)
 	}

@@ -6,7 +6,14 @@ multiple instances.
 
 from flask import Blueprint, request
 
+import model_handler
+import data_handler
+import pandas as pd
+
 import utils
+
+from logger import get_logger
+logger = get_logger(__name__)
 
 predict_bp = Blueprint('predict_bp', __name__)
 
@@ -20,61 +27,85 @@ def instance_predict():
     
     INPUT:
      - input: { model_name: string, 
-                data: [{input: {"var_1": value_1, ..., "var_n" : value_n}}] }
+                data: {"var_1": value_1, ..., "var_n" : value_n} }
     OUTPUT:
-    - output: target (label 0 or 1), or -1 (failure)
+    - output: message
+              status (successful or not)
     '''
 
     input_asDict = request.get_json()
 
-    # Loads Model to be Used
+    logger.info("Received [Predict Instance Request] (0/3) ... ")
+
+    # Loads desired Model
     try: 
-        loaded_model = pickle.load(open(filename, 'rb'))        
-    except (FileNotFoundError, pickle.UnpicklingError):
-        return utils.customResponseHttp("Error Loading Model", "", 500)
+        # Check if Model Name and Model Type are present
+        if ("model_name" in input_asDict.keys()):
+            model_name = input_asDict["model_name"]
+            filepath = "./models/"+model_name+".joblib.dat"
+            if utils.file_exists(filepath):
+                model = model_handler.load_model(filepath)
+            else:
+                message = "Model with given name does not exist."
+                logger.error(message)
+                return utils.custom_response_http(message, 400)
+        else:
+            model_name = "default_model"
     except: 
-        return utils.customResponseHttp("Internal Error", "", 500)
-    
+        message = "Internal Server Error"
+        logger.info(message)
+        return utils.custom_response_http(message, 500)
+    logger.info("[Predict Instance Request] Model [%s] loaded (1/3) ... ", model_name)
+
+    # Loads instance to be classified from json
+    try:
+        if ("data" in input_asDict.keys()):
+            data, ok = data_handler.load_json_data(input_asDict["data"])
+            if ok == False:
+                message = "Invalid data. Couldn't parse json."
+                logger.error(message)
+                return utils.custom_response_http(message, 400)
+            
+            ok = data_handler.validate_instance_data(data)
+            if ok == False:
+                message = "Invalid data. Wrong format."
+                logger.error(message)
+                return utils.custom_response_http(message, 400)
+        else:
+            message = "Instance does not exist."
+            logger.error(message)
+            return utils.custom_response_http(message, 400)
+    except: 
+        message = "Internal Server Error"
+        logger.error(message)
+        return utils.custom_response_http(message, 500)
+    logger.info("[Predict Instance Request] Data loaded (2/3) ... ")
+
     # Runs Prediction
     try:
-        corrected_label = loaded_model.predict(sample)
+        result = model_handler.predict_instance(model, data)
     except:
-        return utils.customResponseHttp("Could not make Prediction", "corrected_label", 500)
-    
-    return utils.customResponseHttp("Reclassification Success!", corrected_label, 200)
+        message = "Could not make Prediction.",
+        logger.error(message)
+        return utils.custom_response_http(message, 500)
+    logger.info("Prediction Made (3/3) .")
 
-@predict_bp.route('/batch_predict', methods=['POST'])
-def batch_predict():
-    ''' 
-    Receives a JSON with a batch of instances as payload. Makes predictions with the model and 
-    returns its classification.
-    If model_name is set, it uses the model given by the name (if it exists);
-    otherwise, we use the default_model
+    return utils.custom_response_http("Classification Success! Target: " + str(result), 200)
 
-    INPUT:
-    - input: { model_name: string, 
-               data: [{input: {"var_1": value_1, ..., "var_n" : value_n}},
-                      {input: {"var_1": value_1, ..., "var_n" : value_n}},
-                       ...                                                   
-                      {input: {"var_1": value_1, ..., "var_n" : value_n}}] }
-    OUTPUT:
-    - output: target (label 0 or 1)
-    '''
+# @predict_bp.route('/batch_predict', methods=['POST'])
+# def batch_predict():
+#     ''' 
+#     Receives a JSON with a batch of instances as payload. Makes predictions with the model and 
+#     returns its classification.
+#     If model_name is set, it uses the model given by the name (if it exists);
+#     otherwise, we use the default_model
 
-    input_asDict = request.get_json()
-
-    # Loads Model to be Used
-    try: 
-        loaded_model = pickle.load(open(filename, 'rb'))        
-    except (FileNotFoundError, pickle.UnpicklingError):
-        return utils.customResponseHttp("Error Loading Model", "", 500)
-    except: 
-        return utils.customResponseHttp("Internal Error", "", 500)
-    
-    # Runs Prediction
-    try:
-        corrected_label = loaded_model.predict(sample)
-    except:
-        return utils.customResponseHttp("Could not make Prediction", "corrected_label", 500)
-    
-    return utils.customResponseHttp("Reclassification Success!", corrected_label, 200)
+#     INPUT:
+#     - input: { model_name: string, 
+#                data: [{input: {"var_1": value_1, ..., "var_n" : value_n}},
+#                       {input: {"var_1": value_1, ..., "var_n" : value_n}},
+#                        ...                                                   
+#                       {input: {"var_1": value_1, ..., "var_n" : value_n}}] }
+#     OUTPUT:
+#     - output: target (label 0 or 1)
+#     '''

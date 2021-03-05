@@ -5,7 +5,7 @@ header {
 
 header > nav {
     flex: 1;
-    padding: 1.1em 3em 0.9em 3em;
+    padding: 1.1em 3.62em 0.9em 3.62em;
     border-bottom: 0.2em solid purple;
     border-top: 0.2em solid purple;
 }
