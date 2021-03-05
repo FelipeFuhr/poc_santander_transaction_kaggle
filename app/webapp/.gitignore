@@ -1,0 +1,9 @@
+# Temporary data
+*.csv
+/tmp/*
+
+# Certificates
+*.pem
+
+# Other Files
+govet-output.json

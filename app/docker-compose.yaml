@@ -1,0 +1,16 @@
+version: '2'
+services:
+    webapp:
+        build: ./webapp
+        container_name: "webapp"
+        ports:
+            - "9000:9000"
+        links:
+            - model-api
+        depends_on:
+            - model-api
+    model-api:
+        build: ./model-api
+        container_name: "model-api"
+        ports:
+            - "9090:9000"

@@ -7,28 +7,15 @@ each specific functionalities blueprint.
 from flask import Flask, request, jsonify, make_response
 from sklearn.ensemble import GradientBoostingClassifier
 import numpy as np
-import pickle
-import yaml
 
 from utils import customResponseHttp
 
 from logger import get_logger
 logger = get_logger(__name__)
 
-default_model_name = ""
-default_model_type = ""
-
-# Loads Configuration File
-try: 
-    with open("config.yaml", "rb") as yaml_file:
-        config = yaml.load(yaml_file, Loader=yaml.FullLoader)
-        default_model_name = config["default_model_name"]
-        default_model_type = config["default_model_type"]
-        logger.info("Successfully loaded configurations.")
-except (FileNotFoundError, pickle.UnpicklingError):
-    logger.error("Could not load the application config file.")
-    exit(1)
-
+from config import get_config
+config = get_config()
+            
 # Routing
 app = Flask(__name__)
 

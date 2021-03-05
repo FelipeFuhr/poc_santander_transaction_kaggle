@@ -1,0 +1,12 @@
+body {
+    min-height: 100vh;
+}
+
+body * {
+    /* border: 1px solid pink; */
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+body > * {
+    width: 100%;
+}

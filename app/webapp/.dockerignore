@@ -1,0 +1,16 @@
+# Git Related Stuff
+.git
+.gitignore
+README.md
+
+# Temporary data
+*.csv
+/tmp/*
+
+# Certificates
+*.pem
+
+# Other Files
+govet-output.json
+Makefile
+*.sh

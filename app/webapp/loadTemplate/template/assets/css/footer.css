@@ -1,0 +1,6 @@
+footer {
+    display: flex;
+    flex-flow: row nowrap;
+
+    border-top: 0.2em solid purple;
+}

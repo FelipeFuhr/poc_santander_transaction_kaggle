@@ -46,7 +46,12 @@ def print_scores(scores):
 
 def get_holdout_data():
     data = pd.read_csv('./data/holdout.csv')
+    X, y = split_Xy(data)
+    return X, y
+
+def split_Xy(data):
     x_cols = [x for x in data.columns if (x not in ['ID_code', 'target'])]
     X = data[x_cols]
     y = data['target']
+    
     return X, y

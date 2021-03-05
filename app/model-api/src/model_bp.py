@@ -15,6 +15,11 @@ from pathlib import Path
 from logger import get_logger
 logger = get_logger(__name__)
 
+from config import get_config
+config = get_config()
+default_model_name = config["default_model_name"]
+default_model_type = config["default_model_type"]
+
 model_bp = Blueprint('model_bp', __name__)
 
 @model_bp.route('/upload_model', methods=['POST'])
@@ -32,17 +37,19 @@ def upload_model():
     '''
 
     input_asDict = request.get_json()
+    req, msg = isModelInfoPresent(input_asDict)
 
+    # Check if Model Name and Model Type are present
     if ("model_name" in input_asDict.keys()):
         model_name = input_asDict["model_name"]
     else:
-        message = "Model Name is not present."
+        message = "Model Name is required."
         logger.error(message)
         return utils.customResponseHttp(message, 400)
     if ("model_type" in input_asDict.keys()):
         model_type = input_asDict["model_type"]
     else:
-        message = "Model Type is not present."
+        message = "Model Type is required."
         logger.error(message)
         return utils.customResponseHttp(message, 400)
     
@@ -57,7 +64,7 @@ def upload_model():
                 logger.error(message)
                 return utils.customResponseHttp(message, 400)
             else: 
-                f1_score = save_xgboost_model(decoded_message, filepath)
+                score = save_uploaded_model(decoded_message, filepath)
     except (FileNotFoundError, pickle.UnpicklingError):
         message = "Error Loading Model"
         logger.error(message)
@@ -68,8 +75,75 @@ def upload_model():
         return utils.customResponseHttp(message, 500)
   
     return utils.customResponseHttp("Model Upload was successful! " + 
-                                    "Model F1 score on holdout set: " 
-                                    + str(f1_score), 200)
+                                    "Model score on holdout set: " 
+                                    + str(score), 200)
+
+# @model_bp.route('/train_model', methods=['POST'])
+# def train_model():
+#     ''' 
+#     Receives a JSON with a batch of instances as payload. If a with the given name and type does
+#     not exist, a new model is created with the given model type and model name.
+#     If a model with the given name and type already exists:
+#         - Trains the model (while keeping the previous weights) if retrain is set to 0;
+#         - Retrains the model from 0 if retrain is set to 1 (or is inexistent).
+    
+#     INPUT:
+#     - input: {  model_name : string,
+#                 model_type: string (example: xgboost, lightgbm, etc),
+#                 retrain: 0 or 1
+#                 data_location: base64_string
+#     OUTPUT:
+#     - output: message
+#               status (successful or not)
+#     '''
+
+#     input_asDict = request.get_json()
+
+#     if ("model_name" in input_asDict.keys()):
+#         model_name = input_asDict["model_name"]
+#     else:
+#         message = "Model Name is required."
+#         logger.error(message)
+#         return utils.customResponseHttp(message, 400)
+#     if ("model_type" in input_asDict.keys()):
+#         model_type = input_asDict["model_type"]
+#     else:
+#         message = "Model Type is required."
+#         logger.error(message)
+#         return utils.customResponseHttp(message, 400)
+    
+#     # Loads Data and Trains Model
+#     try:
+#         data_raw = input_asDict["data"]
+#         data = pd.DataFrame(d=data_raw)
+#         if model_type == "xgboost":
+#             filepath = "./models/xgboost/" + model_name + ".pickle.dat"
+#             if model_already_exists(filepath):
+#                 if input_asDict["retrain"] == 0:
+#                     model, score = train_model(data)
+#                     save_model(model, filepath)
+#                     logger.info("Successfully Retrained the Model.")
+#                     return utils.customResponseHttp(message, 200)
+#                 else:
+#                     model = load_model(filepath)
+#                     model, score = retrain_model(model, data)
+#                     save_model(model, filepath)
+#                 return utils.customResponseHttp(message, 200)
+#             else: 
+#                 model, score = train_model(data)
+#                 save_model(model, filepath)
+#     except (FileNotFoundError, pickle.UnpicklingError):
+#         message = "Error Loading Model"
+#         logger.error(message)
+#         return utils.customResponseHttp(message, 500)
+#     except: 
+#         message = "Internal Error"
+#         logger.error(message)
+#         return utils.customResponseHttp(message, 500)
+  
+#     return utils.customResponseHttp("Model Training was successful! " + 
+#                                     "Model score on holdout set: " 
+#                                     + str(score), 200)
 
 def model_already_exists(filepath):
     if Path(filepath).is_file():
@@ -77,59 +151,49 @@ def model_already_exists(filepath):
     else:
         return False
 
-def save_xgboost_model(modelb, filepath):
+def save_uploaded_model(modelb, filepath):
     with open(filepath, 'wb') as model_file:
         model_file.write(modelb)
     with open(filepath, 'rb') as model_file:
         # Load model
         model = pickle.load(model_file)
         # Run model on holdout dataset
-        X, y = utils.get_holdout_data()
-        y_pred = model.predict(X)
-        logger.info(np.array(y_pred) + np.array(y))
-        scores = utils.get_scores(y, y_pred)
-    return scores["f1"]
-    # return scores["f1"]
-    # return 1
-# @app.route('/train_model', methods=['POST'])
-# def train_model():
-#     ''' 
-#     Receives a JSON with a batch of instances as payload. Trains a model (if retrain 
-#     is set to 0), or retrains the model (if retrain is set to 1). 
+        score = evaluate_on_holdout(model)
+    return score
 
-#     INPUT:
-#     - input: {  model_name: string
-#                 data: [{input: {"var_1": value_1, ..., "var_n" : value_n}},
-#                        {input: {"var_1": value_1, ..., "var_n" : value_n}},
-#                        ...                                                   
-#                        {input: {"var_1": value_1, ..., "var_n" : value_n}}] }
-#                 retrain: 0 or 1
-#     OUTPUT:
-#     - output: new model name
-#     '''
+def save_model(model, filepath):
+    pickle.dump(model, open(filepath, "wb"))
 
-#     input_asDict = request.get_json()
+def load_model(filepath):
+    with open(filepath, 'rb') as model_file:
+        model = pickle.load(model_file)
+        return model
+    return
 
-#     # Loads Model to be Used
-#     try: 
-#         loaded_model = pickle.load(open(filename, 'rb'))        
-#     except (FileNotFoundError, pickle.UnpicklingError):
-#         return utils.customResponseHttp("Error Loading Model", "", 500)
-#     except: 
-#         return utils.customResponseHttp("Internal Error", "", 500)
-    
-#     # Runs Prediction
-#     try:
-#         corrected_label = loaded_model.predict(sample)
-#     except:
-#         return utils.customResponseHttp("Could not make Prediction", "corrected_label", 500)
-    
-#     return utils.customResponseHttp("Reclassification Success!", corrected_label, 200)
+def train_model(data):
+    # Splits X and y
+    X, y = utils.split_Xy()
+    # Trains Model
+    model.fit(X, y)
+    # Evaluate on holdout
+    scores = utils.evaluate_on_holdout(model)
+    return y_pred
+                    
+def retrain_model(model, data):
+    # Splits X and y
+    X, y = utils.split_Xy(data)
+    # Retrains Model
+    model.partial_fit(X, y)
+    # Evaluate on holdout
+    score = evaluate_on_holdout(model)
+    return model, score
 
-
-# @app.route('/change_default_model', methods=['POST'])
-# def upload_new_model():
-#     ''' 
-#     Receives a base64 encoded pickle file to upload a new the model
-
-#     INPUT:
+def evaluate_on_holdout(model, metric="f1"):
+    # Splits X and y
+    X, y = utils.get_holdout_data()
+    # Makes Prediction
+    y_pred = model.predict(X)
+    # Evaluate Multiple Metrics
+    scores = utils.get_scores(y, y_pred)
+    # Select desired Metric
+    return scores[metric]

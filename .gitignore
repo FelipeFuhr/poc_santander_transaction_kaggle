@@ -1,5 +1,5 @@
 notebooks/data/*
-app/model-api/src/data/*
+app/model-api/data/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

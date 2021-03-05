@@ -1,0 +1,35 @@
+header {
+    display: flex;
+    flex-flow: row nowrap;
+}
+
+header > nav {
+    flex: 1;
+    padding: 1.1em 3em 0.9em 3em;
+    border-bottom: 0.2em solid purple;
+    border-top: 0.2em solid purple;
+}
+
+header > nav > ul {
+    display: flex;
+    flex-flow: row wrap;
+    justify-content: space-between;
+    align-items: center;
+}
+
+header > nav > ul > li {
+    padding: 0.5em;
+    text-decoration: none;
+}
+
+header > nav > ul > li > a {
+    font-size: 1.5em;
+    color: #164560;
+
+    padding: 0.2em;
+}
+
+header > nav > ul > li .active {
+    font-weight: bold;
+    color: black;
+}

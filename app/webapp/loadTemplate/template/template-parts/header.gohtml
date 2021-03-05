@@ -1,0 +1,33 @@
+{{define "header"}}
+
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>POC</title>
+        <link rel="stylesheet" href="css/cssReset.css">
+        <link rel="stylesheet" href="css/body.css">
+        <link rel="stylesheet" href="css/header.css">
+        <link rel="stylesheet" href="css/main.css">
+        <link rel="stylesheet" href="css/footer.css">
+    </head>
+    <body>
+        <header>
+            <nav>
+                <ul>
+                    <li><a {{if eq .ActiveItem "Home"}} class="active" {{end}} href="/">
+                        Home </a></li>
+                    <li><a {{if eq .ActiveItem "Predict Instance"}} class="active" {{end}} href="/predict-instance">
+                        Predict Instance </a></li>
+                    <li><a {{if eq .ActiveItem "Predict Batch"}} class="active" {{end}} href="/predict-batch">
+                        Predict Batch </a></li>
+                    <li><a {{if eq .ActiveItem "Upload Model"}} class="active" {{end}} href="/upload-model">
+                        Upload Model </a></li>                    
+                    <li><a {{if eq .ActiveItem "Train Model"}} class="active" {{end}} href="/train-model">
+                        Train Model </a></li>
+                    <li><a {{if eq .ActiveItem "Results"}} class="active" {{end}} href="/results">
+                        Results </a></li>
+                </ul>
+            </nav>
+        </header>
+{{end}}
