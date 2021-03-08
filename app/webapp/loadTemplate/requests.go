@@ -22,7 +22,6 @@ type UploadRequest struct {
 type TrainRequest struct {
 	Model_name string `json:"model_name"`
 	Data       string `json:"data"`
-	Retrain    int    `json:"retrain"`
 }
 
 type GenericResponse struct {
@@ -98,8 +97,8 @@ func sendBatchPredictRequest(model_name string, data string, w http.ResponseWrit
 	return "", nil
 }
 
-func sendTrainModelRequest(model_name string, data string, retrain int, w http.ResponseWriter, r *http.Request) (string, int, error) {
-	job, err := json.Marshal(TrainRequest{model_name, data, int(retrain)})
+func sendTrainModelRequest(model_name string, data string, w http.ResponseWriter, r *http.Request) (string, int, error) {
+	job, err := json.Marshal(TrainRequest{model_name, data})
 	if err != nil {
 		return "", -1, err
 	}

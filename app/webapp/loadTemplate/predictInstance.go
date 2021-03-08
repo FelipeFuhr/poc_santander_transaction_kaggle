@@ -55,7 +55,7 @@ func PredictInstance(w http.ResponseWriter, r *http.Request) {
 		mn_form, ok := r.Form["model_name"]
 		jsonPayload := strings.Replace(string(buf.Bytes()), "\n", "", -1) // read json and substitute '\n'
 		model_name := mn_form[0]
-		if !ok {
+		if !ok || len(model_name) == 0 {
 			model_name = "default_model"
 			smsg = fmt.Sprintf("Sent [Instance Predict Request] with default model. ")
 			emsg = fmt.Sprintf("Error processing [Instance Predict Request] with default model. ")

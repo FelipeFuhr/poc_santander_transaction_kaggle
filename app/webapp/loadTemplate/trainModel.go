@@ -9,7 +9,6 @@ import (
 )
 
 func TrainModel(w http.ResponseWriter, r *http.Request) {
-	var retrain int
 	var err error
 
 	var status int  // status coded from API
@@ -54,7 +53,6 @@ func TrainModel(w http.ResponseWriter, r *http.Request) {
 		}
 		// Encodes model to Base64
 		datab64 := base64.StdEncoding.EncodeToString(buf.Bytes())
-		linfo.Println(string(datab64)[0:9])
 		mn_form, ok := r.Form["model_name"]
 		model_name := mn_form[0]
 		if !ok {
@@ -65,14 +63,8 @@ func TrainModel(w http.ResponseWriter, r *http.Request) {
 			smsg = fmt.Sprintf("Sent [Train Model Request] with [%s] model. ", model_name)
 			emsg = fmt.Sprintf("Error processing [Train Model Request] with default model. ")
 		}
-		// Sends base64 encoded model
-		_, ok = r.Form["retrain_model"]
-		if ok {
-			retrain = 1
-		} else {
-			retrain = 0
-		}
-		if rmsg, status, err = sendTrainModelRequest(model_name, datab64, retrain, w, r); err == nil {
+
+		if rmsg, status, err = sendTrainModelRequest(model_name, datab64, w, r); err == nil {
 			if status == 200 {
 				smsg = smsg + fmt.Sprintf("Return from API: '%s'.", rmsg)
 				data.Message = smsg

@@ -1,6 +1,11 @@
+"""
+Defines custom logger to have features such as, for example, 
+output some information into terminal and other information into log file.
+"""
+
 import logging
 
-def get_logger(name):
+def get_logger(name: str) -> logging.Logger:
     ''' 
     Gets our custom logger for this instance.
     It sets the app.log file level to DEBUG  (so every message above DEBUG 
@@ -14,6 +19,7 @@ def get_logger(name):
 
     logger = logging.getLogger(name)
     logger.setLevel(logging.DEBUG)
+    
     # Sets the File Handler
     formatter = logging.Formatter("[%(asctime)s] %(levelname)s: %(message)s")
     file_handler = logging.FileHandler("logs/app.log")

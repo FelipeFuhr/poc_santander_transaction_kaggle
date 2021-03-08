@@ -20,19 +20,22 @@ config = get_config()
 app = Flask(__name__)
 
 @app.route('/health_check', methods=['GET'])
-def health():
+def health_check():
+    """
+    Simple Health Check to see if application is up
+    """
     try:
-        message = "Health Check was successful"
+        message = "Health Check was successful!"
         logger.info(message)
         return custom_response_http(message, 200)
     except:
-        message = "Health Check was not successful"
+        message = "Health Check was not successful."
         logger.error(message)
         return custom_response_http(message, 500)
 
+# Import Flask Blueprints
 from model_bp import model_bp
 app.register_blueprint(model_bp, url_prefix='/')
-
 from predict_bp import predict_bp
 app.register_blueprint(predict_bp, url_prefix='/')
 
