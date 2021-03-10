@@ -8,16 +8,16 @@ RUN apt-get -y install python3-pip
 WORKDIR /app
 
 COPY ./requirements.txt .
+COPY ./requirements_test.txt .
 
 RUN pip3 install -r requirements.txt
+RUN pip3 install -r requirements_test.txt
 
 COPY ./src .
 COPY ./models ./models
 COPY ./data ./data
 
-RUN pip3 install pytest
-
-ENTRYPOINT [ "pytest" ]
+CMD [ "pytest", "-v" ]
 
 # Second Stage
 

@@ -23,17 +23,6 @@ def save_model(model, filepath: str):
     '''
     joblib.dump(model, filepath)
 
-def train_model(X: pd.DataFrame, y: pd.DataFrame):
-    # Trains Model
-    model = xgb.XGBClassifier(verbosity=0)
-    model.fit(X, y)
-    return model
-                    
-def retrain_model(model, X, y):
-    # Retrains Model
-    model.partial_fit(X, y)
-    return model
-
 def predict_instance(model, instance: dict) -> int:
     '''
     Predicts instance with model

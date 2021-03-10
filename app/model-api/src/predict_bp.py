@@ -14,7 +14,8 @@ import numpy as np
 from os import remove
 
 from utils import custom_response_http, batch_response_http,  file_exists
-from data_handler import treat_and_validate_batch_data
+from data_handler import treat_and_validate_instance_data, treat_and_validate_batch_data, load_json_data
+from model_handler import load_model
 
 from logger import get_logger
 logger = get_logger(__name__)
@@ -54,7 +55,7 @@ def instance_predict():
         filepath = "./models/"+model_name+".joblib.dat"
         logger.info(filepath)
         if file_exists(filepath):
-            model = model_handler.load_model(filepath)
+            model = load_model(filepath)
         else:
             message = "Model " + model_name + " does not exist."
             logger.error(message)
@@ -68,13 +69,13 @@ def instance_predict():
     # Loads instance to be classified from json
     try:
         if ("data" in input_asDict.keys()):
-            data, ok = data_handler.load_json_data(input_asDict["data"])
+            data, ok = load_json_data(input_asDict["data"])
             if ok == False:
                 message = "Invalid data. Couldn't parse json."
                 logger.error(message)
                 return custom_response_http(message, 400)
             
-            ok = data_handler.validate_instance_data(data)
+            ok = treat_and_validate_instance_data(data)
             if ok == False:
                 message = "Invalid data. Wrong format."
                 logger.error(message)
@@ -129,7 +130,7 @@ def batch_predict():
             model_name = default_model_name
         filepath = "./models/"+model_name+".joblib.dat"
         if file_exists(filepath):
-            model = model_handler.load_model(filepath)
+            model = load_model(filepath)
         else:
             message = "Model " + model_name + " does not exist."
             logger.error(message)
